@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.authentication import requires
 
+from khoj.app.settings import SKIP_HOME_PAGE
 from khoj.database.adapters import get_user_github_config
 from khoj.routers.helpers import get_next_url, get_user_config
 from khoj.utils import constants, state
@@ -24,7 +25,7 @@ def index(request: Request):
     # Skip redirect if user explicitly navigated from home page (indicated by query param)
     if not state.anonymous_mode and not request.user.is_authenticated:
         if "v" not in request.query_params:
-            return RedirectResponse(url="/home")
+            return RedirectResponse(url="/?v=app" if SKIP_HOME_PAGE else "/home")
     return templates.TemplateResponse(request, name="index.html")
 
 
