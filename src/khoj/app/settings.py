@@ -42,6 +42,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 DISABLE_HTTPS = is_env_var_true("KHOJ_NO_HTTPS")
+PASSWORD_AUTH_ENABLED = is_env_var_true("KHOJ_PASSWORD_AUTH_ENABLED")
 
 # WARNING: Change this check only if you know what you are doing.
 if not os.getenv("KHOJ_DOMAIN"):

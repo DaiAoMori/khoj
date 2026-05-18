@@ -286,6 +286,31 @@ async def aget_user_validated_by_email_verification_code(code: str, email: str) 
     return user, False
 
 
+async def acreate_user_with_password(input_email: str, password: str) -> tuple[Optional[KhojUser], bool]:
+    email, is_valid_email = normalize_email(input_email)
+    if not is_valid_email:
+        return None, False
+    if await KhojUser.objects.filter(email=email).aexists():
+        return None, False
+
+    user = KhojUser(username=email, email=email)
+    await sync_to_async(user.set_password)(password)
+    user.verified_email = True
+    await user.asave()
+
+    await Subscription.objects.acreate(user=user, type=Subscription.Type.STANDARD)
+    return user, True
+
+
+async def avalidate_user_password(input_email: str, password: str) -> Optional[KhojUser]:
+    email, _ = normalize_email(input_email)
+    user = await KhojUser.objects.filter(email=email).afirst()
+    if not user or not user.password:
+        return None
+    is_valid = await sync_to_async(user.check_password)(password)
+    return user if is_valid else None
+
+
 async def create_user_by_google_token(token: dict) -> KhojUser:
     user, _ = await KhojUser.objects.filter(email=token.get("email")).aupdate_or_create(
         defaults={"username": token.get("email"), "email": token.get("email")}

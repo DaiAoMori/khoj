@@ -13,11 +13,13 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_302_FOUND
 
-from khoj.app.settings import DISABLE_HTTPS
+from khoj.app.settings import DISABLE_HTTPS, PASSWORD_AUTH_ENABLED
 from khoj.database.adapters import (
     acreate_khoj_token,
+    acreate_user_with_password,
     aget_or_create_user_by_email,
     aget_user_validated_by_email_verification_code,
+    avalidate_user_password,
     delete_khoj_token,
     get_khoj_tokens,
     get_or_create_user,
@@ -133,6 +135,38 @@ async def sign_in_with_magic_link(
         request.session["user"] = dict(id_info)
         return RedirectResponse(url="/")
     return Response(status_code=401)
+
+
+@auth_router.post("/password/login")
+async def login_with_password(request: Request):
+    if not PASSWORD_AUTH_ENABLED:
+        raise HTTPException(status_code=403, detail="Password authentication is not enabled.")
+    body = await request.json()
+    email = body.get("email", "").strip()
+    password = body.get("password", "")
+    if not email or not password:
+        raise HTTPException(status_code=401, detail="Invalid credentials.")
+    user = await avalidate_user_password(email, password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials.")
+    request.session["user"] = {"email": user.email}
+    return {"email": user.email}
+
+
+@auth_router.post("/password/register")
+async def register_with_password(request: Request):
+    if not PASSWORD_AUTH_ENABLED:
+        raise HTTPException(status_code=403, detail="Password authentication is not enabled.")
+    body = await request.json()
+    email = body.get("email", "").strip()
+    password = body.get("password", "")
+    if not email or len(password) < 8:
+        raise HTTPException(status_code=422, detail="Email and a password of at least 8 characters are required.")
+    user, created = await acreate_user_with_password(email, password)
+    if not created:
+        raise HTTPException(status_code=409, detail="An account with this email already exists.")
+    request.session["user"] = {"email": user.email}
+    return {"email": user.email}
 
 
 @auth_router.post("/token")
@@ -310,5 +344,6 @@ async def oauth_metadata(request: Request):
         "google": {
             "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
             "redirect_uri": f"{redirect_uri}",
-        }
+        },
+        "password_auth_enabled": PASSWORD_AUTH_ENABLED,
     }

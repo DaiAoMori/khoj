@@ -44,7 +44,9 @@ interface Provider {
 }
 
 interface CredentialsData {
-    [provider: string]: Provider;
+    google?: Provider;
+    password_auth_enabled?: boolean;
+    [provider: string]: Provider | boolean | undefined;
 }
 
 export default function LoginPrompt(props: LoginPromptProps) {
@@ -120,7 +122,10 @@ export default function LoginPrompt(props: LoginPromptProps) {
                 <DrawerContent className={`flex flex-col gap-4 w-full mb-4`}>
                     <div>
                         {useEmailSignIn ? (
-                            <EmailSignInContext setUseEmailSignIn={setUseEmailSignIn} />
+                            <EmailSignInContext
+                                setUseEmailSignIn={setUseEmailSignIn}
+                                passwordAuthEnabled={!!data?.password_auth_enabled}
+                            />
                         ) : (
                             <MainSignInContext
                                 handleGoogleScriptLoad={handleGoogleScriptLoad}
@@ -147,7 +152,10 @@ export default function LoginPrompt(props: LoginPromptProps) {
                 </VisuallyHidden.Root>
                 <div>
                     {useEmailSignIn ? (
-                        <EmailSignInContext setUseEmailSignIn={setUseEmailSignIn} />
+                        <EmailSignInContext
+                            setUseEmailSignIn={setUseEmailSignIn}
+                            passwordAuthEnabled={!!data?.password_auth_enabled}
+                        />
                     ) : (
                         <MainSignInContext
                             handleGoogleScriptLoad={handleGoogleScriptLoad}
@@ -164,10 +172,84 @@ export default function LoginPrompt(props: LoginPromptProps) {
     );
 }
 
+function PasswordSignInContext({ setUseEmailSignIn }: { setUseEmailSignIn: (v: boolean) => void }) {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    async function handleLogin() {
+        setError("");
+        setLoading(true);
+        try {
+            const res = await fetch("/auth/password/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                setError("Invalid email or password.");
+            }
+        } catch {
+            setError("Something went wrong. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <div className="flex flex-col gap-4 p-4">
+            <Button
+                variant="ghost"
+                className="w-fit p-1 m-0 flex gap-2 items-center justify-center text-sm absolute top-5 left-5 h-fit rounded-full border border-gray-200"
+                onClick={() => setUseEmailSignIn(false)}
+            >
+                <ArrowLeft className="h-6 w-6" />
+            </Button>
+            <div className="text-center font-bold text-xl">Sign in to Khoj</div>
+            <div className="flex flex-col gap-3 items-center">
+                <Input
+                    type="email"
+                    placeholder="Email"
+                    className="p-6 w-[300px] rounded-lg"
+                    value={email}
+                    autoFocus={true}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleLogin(); }}
+                />
+                <Input
+                    type="password"
+                    placeholder="Password"
+                    className="p-6 w-[300px] rounded-lg"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleLogin(); }}
+                />
+                {error && <div className="text-red-500 text-sm">{error}</div>}
+                <Button
+                    variant="default"
+                    className="p-6 w-[300px] rounded-lg font-bold"
+                    onClick={handleLogin}
+                    disabled={loading}
+                >
+                    {loading ? <Spinner className="h-5 w-5" /> : "Login"}
+                </Button>
+                <Link href="/register" className="text-sm text-muted-foreground hover:underline mt-1">
+                    Register new account...
+                </Link>
+            </div>
+        </div>
+    );
+}
+
 function EmailSignInContext({
     setUseEmailSignIn,
+    passwordAuthEnabled,
 }: {
     setUseEmailSignIn: (useEmailSignIn: boolean) => void;
+    passwordAuthEnabled: boolean;
 }) {
     const [otp, setOTP] = useState("");
     const [otpError, setOTPError] = useState("");
@@ -248,6 +330,10 @@ function EmailSignInContext({
             .catch((err) => {
                 console.error(err);
             });
+    }
+
+    if (passwordAuthEnabled) {
+        return <PasswordSignInContext setUseEmailSignIn={setUseEmailSignIn} />;
     }
 
     return (

@@ -75,6 +75,13 @@ def login_page(request: Request):
     return RedirectResponse(url=redirect_url)
 
 
+@web_client.get("/register", response_class=HTMLResponse)
+def register_page(request: Request):
+    if request.user.is_authenticated:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse(request, name="register/index.html")
+
+
 @web_client.get("/agents", response_class=HTMLResponse)
 def agents_page(request: Request):
     return templates.TemplateResponse(request, name="agents/index.html")
